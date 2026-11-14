@@ -1,1 +1,431 @@
 
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>六合彩200期統計預測App</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#edf3f9;color:#18334c;font-family:Arial,"Noto Sans TC",sans-serif}
+header{background:#174c76;color:white;text-align:center;padding:22px 10px}
+h1{font-size:23px;margin:0 0 8px}
+main{max-width:850px;margin:auto;padding:12px}
+.card{background:white;border-radius:15px;padding:18px;margin:14px 0;box-shadow:0 2px 8px #0001}
+h2{font-size:20px}
+button{background:#17679c;color:white;border:0;border-radius:9px;padding:13px;margin:5px 3px;font-size:16px;font-weight:bold;cursor:pointer}
+.green{background:#138367}
+.gray{background:#55758d}
+textarea{width:100%;height:180px;font-size:16px;padding:12px;border:1px solid #aaa;border-radius:9px}
+input{width:100%;padding:12px;font-size:17px;border:1px solid #aaa;border-radius:8px;margin:6px 0 12px}
+.status{background:#e8f3ff;padding:13px;border-radius:9px;margin-top:10px;white-space:pre-wrap}
+.ball{display:inline-flex;align-items:center;justify-content:center;width:39px;height:39px;border-radius:50%;background:#dceafb;margin:3px;font-weight:bold}
+.special{background:#ffe3aa}
+.row{padding:12px 0;border-bottom:1px solid #ddd}
+.note{font-size:14px;color:#637687;line-height:1.6}
+select{padding:10px;font-size:16px;border-radius:8px}
+</style>
+</head>
+
+<body>
+<header>
+<h1>🎯 香港六合彩 200 期統計預測 App</h1>
+<div>歷史資料分析｜每日手動更新｜下一期參考選號</div>
+</header>
+
+<main>
+
+<section class="card">
+<h2>① 匯入歷史開獎資料</h2>
+
+<p class="note">
+可從六合彩歷史資料網站複製開獎表格，
+貼入下方文字框。系統會嘗試辨識日期、期別、
+6 個正碼及特別號。
+</p>
+
+<button id="open2026">開啟2026資料頁</button>
+<button id="open2025" class="gray">開啟2025資料頁</button>
+
+<textarea id="paste" placeholder="請貼上六合彩歷史開獎資料"></textarea>
+
+<button id="importText" class="green">加入貼上資料</button>
+<button id="importCSV">匯入CSV檔案</button>
+<input type="file" id="file" accept=".csv,.txt" hidden>
+
+<div id="status" class="status">尚未匯入資料。</div>
+
+<button id="download">下載CSV備份</button>
+<button id="clear" class="gray">清空歷史資料</button>
+</section>
+
+<section class="card">
+<h2>② 每日手動新增最新一期</h2>
+
+<label>開獎日期</label>
+<input type="date" id="date">
+
+<label>6個正碼</label>
+<input type="text" id="numbers" placeholder="03 11 13 15 17 24">
+
+<label>特別號</label>
+<input type="number" id="special" min="1" max="49" placeholder="19">
+
+<button id="save" class="green">儲存最新一期並更新統計</button>
+
+<div id="manualStatus" class="status">尚未新增資料。</div>
+</section>
+
+<section class="card">
+<h2>③ 統計分析</h2>
+
+分析期數：
+<select id="period">
+<option value="30">30期</option>
+<option value="60">60期</option>
+<option value="100">100期</option>
+<option value="200" selected>200期</option>
+</select>
+
+<div id="stats" class="status">請先匯入資料。</div>
+</section>
+
+<section class="card">
+<h2>④ 下一期參考號碼</h2>
+
+<button id="predict" class="green">產生5組參考號碼</button>
+
+<div id="result" class="status">尚未產生號碼。</div>
+
+<p class="note">⚠️ 統計分析僅供參考，無法保證中獎。</p>
+</section>
+
+<section class="card">
+<h2>⑤ 最新歷史資料</h2>
+<div id="history">尚無資料。</div>
+</section>
+
+</main>
+
+<script>
+"use strict";
+
+const KEY="mark_six_200_verified_v1";
+const $=id=>document.getElementById(id);
+let rows=[];
+
+try{
+ const saved=JSON.parse(localStorage.getItem(KEY)||"[]");
+ if(Array.isArray(saved))rows=saved.filter(valid);
+}catch(e){rows=[]}
+
+function valid(r){
+ if(!r||typeof r.date!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))return false;
+ if(!Array.isArray(r.n)||r.n.length!==6)return false;
+ if(!r.n.every(x=>Number.isInteger(x)&&x>=1&&x<=49))return false;
+ if(new Set(r.n).size!==6)return false;
+ if(!Number.isInteger(r.sp)||r.sp<1||r.sp>49)return false;
+ if(r.n.includes(r.sp))return false;
+ return true;
+}
+
+function normalize(){
+ const map=new Map();
+ rows.forEach(r=>{
+  if(valid(r))map.set(r.date,r);
+ });
+ rows=[...map.values()].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,200);
+}
+
+function saveData(){
+ normalize();
+ try{
+  localStorage.setItem(KEY,JSON.stringify(rows));
+  return true;
+ }catch(e){
+  $("status").textContent="儲存失敗："+e.message;
+  return false;
+ }
+}
+
+function parseText(text){
+ const result=[];
+ const lines=text.replace(/\r/g,"").split("\n").map(x=>x.trim()).filter(Boolean);
+
+ // 支援日期、期別及號碼分行的網頁複製格式
+ const tokens=text.match(/20\d{2}[-/]\d{1,2}[-/]\d{1,2}|\d{2}\/\d{3}|\+|[0-9]+/g)||[];
+
+ function add(date,issue,nums){
+  if(nums.length!==7)return;
+  const n=nums.slice(0,6).map(Number).sort((a,b)=>a-b);
+  const sp=Number(nums[6]);
+  const r={date,issue,n,sp};
+  if(valid(r))result.push(r);
+ }
+
+ // 先解析以日期開頭的連續資料
+ for(let i=0;i<tokens.length;i++){
+  const d=tokens[i];
+  if(!/^20\d{2}[-/]\d{1,2}[-/]\d{1,2}$/.test(d))continue;
+
+  const date=d.replace(/\//g,"-").split("-").map((x,j)=>j?x.padStart(2,"0"):x).join("-");
+  let j=i+1;
+  let issue="M"+date;
+
+  if(/^\d{2}\/\d{3}$/.test(tokens[j]||"")){
+   issue=tokens[j];
+   j++;
+  }
+
+  const nums=[];
+  while(j<tokens.length&&nums.length<7){
+   const t=tokens[j];
+   if(/^20\d{2}[-/]\d{1,2}[-/]\d{1,2}$/.test(t))break;
+   if(t==="+"){j++;continue}
+   if(/^\d{1,2}$/.test(t))nums.push(Number(t));
+   j++;
+  }
+  add(date,issue,nums);
+ }
+
+ // CSV 格式
+ for(const line of lines){
+  const p=line.split(/[,，;\t]+/).map(x=>x.trim().replace(/^"|"$/g,""));
+  if(p.length<8)continue;
+  if(!/^20\d{2}-\d{2}-\d{2}$/.test(p[0]))continue;
+
+  let issue="M"+p[0],start=1;
+  if(/^\d{2}\/\d{3}$/.test(p[1]||"")||/^M20/.test(p[1]||"")){
+   issue=p[1];
+   start=2;
+  }
+
+  const nums=p.slice(start,start+7).map(Number);
+  add(p[0],issue,nums);
+ }
+
+ const map=new Map();
+ result.forEach(r=>map.set(r.date,r));
+ return [...map.values()];
+}
+
+function merge(data){
+ const before=rows.length;
+ rows=[...rows,...data];
+ saveData();
+ render();
+ return {parsed:data.length,total:rows.length,before};
+}
+
+$("importText").addEventListener("click",()=>{
+ const text=$("paste").value;
+ if(!text.trim()){
+  $("status").textContent="請先貼上歷史開獎資料。";
+  return;
+ }
+ const data=parseText(text);
+ const r=merge(data);
+ $("status").textContent=
+ "本次解析到："+r.parsed+" 筆\n目前儲存："+r.total+" 期";
+ if(r.parsed>0)$("paste").value="";
+});
+
+$("open2026").addEventListener("click",()=>{
+ window.open("https://lotto2.arclink.com.tw/results/history/mark_six/2026/index.html","_blank");
+});
+
+$("open2025").addEventListener("click",()=>{
+ window.open("https://lotto2.arclink.com.tw/results/history/mark_six/2025/index.html","_blank");
+});
+
+$("importCSV").addEventListener("click",()=>$("file").click());
+
+$("file").addEventListener("change",async e=>{
+ const f=e.target.files[0];
+ if(!f)return;
+ try{
+  const text=await f.text();
+  const data=parseText(text);
+  const r=merge(data);
+  $("status").textContent="CSV解析："+r.parsed+" 筆\n目前儲存："+r.total+" 期";
+ }catch(err){
+  $("status").textContent="匯入失敗："+err.message;
+ }
+ e.target.value="";
+});
+
+$("save").addEventListener("click",()=>{
+ const date=$("date").value;
+ const parts=$("numbers").value.trim().split(/[\s,，、]+/).filter(Boolean);
+ const n=parts.map(Number).sort((a,b)=>a-b);
+ const sp=Number($("special").value);
+
+ if(!date){
+  $("manualStatus").textContent="請填寫有效的開獎日期。";
+  return;
+ }
+
+ const r={date,issue:"M"+date,n,sp};
+
+ if(parts.length!==6||parts.some(x=>!/^\d{1,2}$/.test(x))||
+ $("special").value.trim()===""||!valid(r)){
+  $("manualStatus").textContent="請輸入6個不重複正碼，以及不同於正碼的特別號（1–49）。";
+  return;
+ }
+
+ if(rows.some(x=>x.date===date)&&!confirm("此日期已有資料，確定覆蓋嗎？"))return;
+
+ rows=rows.filter(x=>x.date!==date);
+ rows.push(r);
+ const ok=saveData();
+ render();
+
+ $("manualStatus").textContent=ok
+ ? "已儲存："+date+"，目前共 "+rows.length+" 期。"
+ : "資料儲存失敗。";
+
+ if(ok){
+  $("numbers").value="";
+  $("special").value="";
+ }
+});
+
+$("download").addEventListener("click",()=>{
+ if(!rows.length){
+  alert("目前沒有資料可以備份。");
+  return;
+ }
+
+ const csv="date,issue,n1,n2,n3,n4,n5,n6,special\r\n"+
+ rows.map(r=>[r.date,r.issue,...r.n,r.sp].join(",")).join("\r\n");
+
+ const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");
+ a.href=url;
+ a.download="mark_six_history_200.csv";
+ document.body.appendChild(a);
+ a.click();
+ a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+
+$("clear").addEventListener("click",()=>{
+ if(!confirm("確定清空所有歷史資料？"))return;
+ rows=[];
+ localStorage.removeItem(KEY);
+ render();
+ $("status").textContent="資料已清空。";
+});
+
+function balls(nums,sp){
+ let html=nums.map(n=>'<span class="ball">'+String(n).padStart(2,"0")+"</span>").join("");
+ if(sp!==undefined)html+=' + <span class="ball special">'+String(sp).padStart(2,"0")+"</span>";
+ return html;
+}
+
+function analysis(){
+ const count=Math.min(Number($("period").value),rows.length);
+ const data=rows.slice(0,count);
+ const freq=Array(50).fill(0);
+ const miss=Array(50).fill(count);
+ const specialFreq=Array(50).fill(0);
+
+ data.forEach((r,i)=>{
+  r.n.forEach(n=>{
+   freq[n]++;
+   if(miss[n]===count)miss[n]=i;
+  });
+  specialFreq[r.sp]++;
+ });
+
+ const ids=Array.from({length:49},(_,i)=>i+1);
+ return {
+  count,data,freq,miss,specialFreq,
+  hot:[...ids].sort((a,b)=>freq[b]-freq[a]||a-b),
+  cold:[...ids].sort((a,b)=>freq[a]-freq[b]||a-b),
+  overdue:[...ids].sort((a,b)=>miss[b]-miss[a]||a-b)
+ };
+}
+
+function render(){
+ $("status").textContent=rows.length
+ ? "目前已儲存："+rows.length+" 期\n最新日期："+rows[0].date
+ : "尚未匯入資料。";
+
+ if(!rows.length){
+  $("stats").textContent="請先匯入資料。";
+  $("history").textContent="尚無資料。";
+  $("result").textContent="尚未產生號碼。";
+  return;
+ }
+
+ const a=analysis();
+ const odd=a.data.reduce((s,r)=>s+r.n.filter(n=>n%2).length,0);
+ const big=a.data.reduce((s,r)=>s+r.n.filter(n=>n>=25).length,0);
+ const sum=a.data.reduce((s,r)=>s+r.n.reduce((x,y)=>x+y,0),0);
+ const consecutive=a.data.filter(r=>r.n.some((x,i)=>i>0&&x===r.n[i-1]+1)).length;
+
+ const fmt=arr=>arr.slice(0,10).map(n=>String(n).padStart(2,"0")+"("+a.freq[n]+")").join("、");
+
+ $("stats").innerHTML=
+ "<p>實際分析："+a.count+"期</p>"+
+ "<p><b>熱門號碼：</b>"+fmt(a.hot)+"</p>"+
+ "<p><b>冷門號碼：</b>"+fmt(a.cold)+"</p>"+
+ "<p><b>遺漏號碼：</b>"+a.overdue.slice(0,10).map(n=>n+"("+a.miss[n]+"期)").join("、")+"</p>"+
+ "<p>奇數："+odd+"　偶數："+(a.count*6-odd)+"</p>"+
+ "<p>大號："+big+"　小號："+(a.count*6-big)+"</p>"+
+ "<p>平均和值："+(sum/a.count).toFixed(1)+"</p>"+
+ "<p>出現連號期數："+consecutive+"</p>";
+
+ $("history").innerHTML=rows.slice(0,15).map(r=>
+ '<div class="row"><b>'+r.date+'</b><br>'+balls(r.n,r.sp)+"</div>"
+ ).join("");
+}
+
+$("period").addEventListener("change",render);
+
+$("predict").addEventListener("click",()=>{
+ if(rows.length<10){
+  $("result").textContent="至少需要10期歷史資料才能產生參考號碼。";
+  return;
+ }
+
+ const a=analysis();
+ const strategies=[
+  ["熱門參考",a.hot],
+  ["冷門參考",a.cold],
+  ["遺漏參考",a.overdue],
+  ["熱門冷門混合",a.hot.flatMap((x,i)=>[x,a.cold[i]]).filter(Boolean)],
+  ["近期頻率",Array.from({length:49},(_,i)=>i+1).sort((x,y)=>{
+   const score=n=>rows.slice(0,30).reduce((s,r,i)=>s+(r.n.includes(n)?30-i:0),0);
+   return score(y)-score(x);
+  })]
+ ];
+
+ let html="";
+
+ strategies.forEach(([name,rank],i)=>{
+  let chosen=[];
+  for(const n of rank){
+   if(!chosen.includes(n))chosen.push(n);
+   if(chosen.length===6)break;
+  }
+  chosen.sort((a,b)=>a-b);
+
+  const sp=Array.from({length:49},(_,j)=>j+1)
+  .filter(n=>!chosen.includes(n))
+  .sort((x,y)=>a.specialFreq[y]-a.specialFreq[x]||x-y)[i];
+
+  html+='<div class="row"><b>第'+(i+1)+'組｜'+name+'</b><br>'+
+  balls(chosen,sp)+"</div>";
+ });
+
+ $("result").innerHTML=html;
+});
+
+normalize();
+render();
+</script>
+</body>
+</html>
