@@ -1,0 +1,22 @@
+
+{
+  "name": "六合彩 AI 預測",
+  "short_name": "六合彩 AI",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#edf3f9",
+  "theme_color": "#174c76",
+  "icons": [
+    {
+      "src": "./icon-192-new.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./icon-512-new.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
