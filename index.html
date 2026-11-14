@@ -434,5 +434,20 @@ $("predict").addEventListener("click",()=>{
 normalize();
 render();
 </script>
+ 
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("./sw.js")
+      .then(function () {
+        console.log("六合彩 AI 離線功能已啟用");
+      })
+      .catch(function (error) {
+        console.log("離線功能註冊失敗", error);
+      });
+  });
+}
+</script>
+
 </body>
 </html>
