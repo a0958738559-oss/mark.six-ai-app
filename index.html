@@ -433,6 +433,39 @@ $("predict").addEventListener("click",()=>{
 
 normalize();
 render();
+ 
+async function loadPublicCSV() {
+  if (rows.length > 0) return;
+
+  try {
+    const response = await fetch(
+      "./mark_six_history_200%20(4).csv",
+      { cache: "no-store" }
+    );
+
+    if (!response.ok) {
+      throw new Error("CSV下載失敗");
+    }
+
+    const text = await response.text();
+    const data = parseText(text);
+
+    if (data.length === 0) {
+      throw new Error("CSV沒有有效資料");
+    }
+
+    rows = data;
+    saveData();
+    render();
+
+  } catch (error) {
+    $("status").textContent =
+      "自動載入失敗：" + error.message;
+  }
+}
+
+loadPublicCSV();
+
 </script>
  
 <script>
